@@ -1,0 +1,47 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  name      String
+  password  String
+  bio       String?  @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  posts     Post[]
+
+  @@index([email])
+}
+
+model Category {
+  id          Int     @id @default(autoincrement())
+  name        String  @unique
+  description String?
+  posts       Post[]  @relation("CategoryToPost")
+
+  @@index([name])
+}
+
+model Post {
+  id         Int        @id @default(autoincrement())
+  title      String
+  content    String     @db.Text
+  published  Boolean    @default(false)
+  viewCount  Int        @default(0)
+  authorId   Int
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  author     User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  categories Category[] @relation("CategoryToPost")
+
+  @@index([authorId])
+  @@index([published])
+}
