@@ -47,9 +47,18 @@ export class UsersService {
     }
   }
 
-  // GET ALL USERS (returns [] when none)
-  async findAll() {
+  // GET ALL USERS (supports optional published filter and pagination)
+  async findAll(published?: boolean, skip?: number, take?: number) {
+    const offset = skip ?? 0;
+    const limit = Math.min(take ?? 10, 100);
+
     const users = await this.prisma.user.findMany({
+      where:
+        published !== undefined
+          ? { posts: { some: { published } } }
+          : undefined,
+      skip: offset,
+      take: limit,
       select: {
         ...this.userSelect,
         posts: {
@@ -66,11 +75,10 @@ export class UsersService {
           },
         },
       },
+      orderBy: { createdAt: 'desc' },
     });
-    if (!users.length) {
-      throw new NotFoundException('No users found');
-    }
-    return users;
+
+    return users; // return empty array if none
   }
 
   // GET A SINGLE USER
