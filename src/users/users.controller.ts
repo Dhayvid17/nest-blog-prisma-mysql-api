@@ -31,12 +31,10 @@ export class UsersController {
   // GET ALL USERS (optional filters: published, pagination)
   @Get()
   findAll(
-    @Query('published', new DefaultValuePipe(undefined), ParseBoolPipe)
-    published?: boolean,
     @Query('skip', new DefaultValuePipe(0), ParseIntPipe) skip?: number,
     @Query('take', new DefaultValuePipe(10), ParseIntPipe) take?: number,
   ) {
-    return this.usersService.findAll(published, skip, take);
+    return this.usersService.findAll(skip, take);
   }
 
   // GET A SINGLE USER

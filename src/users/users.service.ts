@@ -47,16 +47,12 @@ export class UsersService {
     }
   }
 
-  // GET ALL USERS (supports optional published filter and pagination)
-  async findAll(published?: boolean, skip?: number, take?: number) {
+  // GET ALL USERS (supports pagination)
+  async findAll(skip?: number, take?: number) {
     const offset = skip ?? 0;
     const limit = Math.min(take ?? 10, 100);
 
     const users = await this.prisma.user.findMany({
-      where:
-        published !== undefined
-          ? { posts: { some: { published } } }
-          : undefined,
       skip: offset,
       take: limit,
       select: {

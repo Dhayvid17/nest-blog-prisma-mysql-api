@@ -9,7 +9,6 @@ import {
   MinLength,
   IsPositive,
   ArrayUnique,
-  isPositive,
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 
@@ -38,8 +37,14 @@ export class CreatePostDto {
   @ArrayUnique()
   @IsArray()
   @IsInt({ each: true })
-  @IsOptional()
+  @IsNotEmpty()
   @Type(() => Number)
   @IsPositive({ each: true })
-  categoryIds?: number[];
+  @Transform(({ value }) => {
+    if (Array.isArray(value) && value.length === 0) {
+      throw new Error('At least one category is required');
+    }
+    return value;
+  })
+  categoryIds: number[];
 }

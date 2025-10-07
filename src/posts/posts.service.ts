@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
@@ -11,14 +15,29 @@ export class PostsService {
   async create(createPostDto: CreatePostDto) {
     const { categoryIds, ...postData } = createPostDto;
 
+    if (!categoryIds || categoryIds.length === 0) {
+      throw new BadRequestException('At least one category is required');
+    }
+
+    // Verify that all categories exist
+    const categories = await this.prisma.category.findMany({
+      where: {
+        id: {
+          in: categoryIds,
+        },
+      },
+    });
+
+    if (categories.length !== categoryIds.length) {
+      throw new NotFoundException('One or more categories not found');
+    }
+
     return this.prisma.post.create({
       data: {
         ...postData,
-        categories: categoryIds
-          ? {
-              connect: categoryIds.map((id) => ({ id })),
-            }
-          : undefined,
+        categories: {
+          connect: categoryIds.map((id) => ({ id })),
+        },
       },
       include: {
         author: {

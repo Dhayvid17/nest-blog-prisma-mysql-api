@@ -31,12 +31,14 @@ export class PostsController {
   @Get()
   // GET ALL POSTS (optional filters & pagination)
   findAll(
-    @Query('published', new DefaultValuePipe(undefined), ParseBoolPipe)
-    published?: boolean,
+    @Query('published') published?: string,
     @Query('skip', new DefaultValuePipe(0), ParseIntPipe) skip?: number,
     @Query('take', new DefaultValuePipe(10), ParseIntPipe) take?: number,
   ) {
-    return this.postsService.findAll(published, skip, take);
+    // Convert string to boolean, but only if the parameter is provided
+    const publishedBool =
+      published === undefined ? undefined : published === 'true';
+    return this.postsService.findAll(publishedBool, skip, take);
   }
 
   // SEARCH POSTS BY TITLE OR CONTENT
