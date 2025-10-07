@@ -1,26 +1,184 @@
-import { Injectable } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  InternalServerErrorException,
+} from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import * as argon2 from 'argon2';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 
 @Injectable()
 export class UsersService {
-  create(createUserDto: CreateUserDto) {
-    return 'This action adds a new user';
+  constructor(private prisma: PrismaService) {}
+
+  private userSelect = {
+    id: true,
+    email: true,
+    name: true,
+    bio: true,
+    createdAt: true,
+    updatedAt: true,
+  };
+
+  // CREATE NEW USER
+  async create(createUserDto: CreateUserDto) {
+    try {
+      const hashed = await argon2.hash(createUserDto.password);
+      const data = {
+        ...createUserDto,
+        password: hashed,
+      };
+      const user = await this.prisma.user.create({
+        data,
+        select: this.userSelect,
+      });
+      return user;
+    } catch (error: any) {
+      if (
+        error instanceof PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ConflictException('Email already in use');
+      }
+      throw new InternalServerErrorException('Could not create user');
+    }
   }
 
-  findAll() {
-    return `This action returns all users`;
+  // GET ALL USERS (returns [] when none)
+  async findAll() {
+    const users = await this.prisma.user.findMany({
+      select: {
+        ...this.userSelect,
+        posts: {
+          select: {
+            id: true,
+            title: true,
+            published: true,
+            viewCount: true,
+            createdAt: true,
+            updatedAt: true,
+            categories: {
+              select: { id: true, name: true },
+            },
+          },
+        },
+      },
+    });
+    if (!users.length) {
+      throw new NotFoundException('No users found');
+    }
+    return users;
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} user`;
+  // GET A SINGLE USER
+  async findOne(id: number) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      select: {
+        ...this.userSelect,
+        posts: {
+          select: {
+            id: true,
+            title: true,
+            content: true,
+            published: true,
+            viewCount: true,
+            createdAt: true,
+            updatedAt: true,
+            categories: { select: { id: true, name: true } },
+          },
+        },
+      },
+    });
+    if (!user) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+    return user;
   }
 
-  update(id: number, updateUserDto: UpdateUserDto) {
-    return `This action updates a #${id} user`;
+  // UPDATE A USER
+  async update(id: number, updateUserDto: UpdateUserDto) {
+    try {
+      const data: any = { ...updateUserDto };
+      if (updateUserDto.password) {
+        data.password = await argon2.hash(updateUserDto.password);
+      }
+
+      const user = await this.prisma.user.update({
+        where: { id },
+        data,
+        select: this.userSelect,
+      });
+
+      return user;
+    } catch (error: any) {
+      if (error instanceof PrismaClientKnownRequestError) {
+        if (error.code === 'P2025') {
+          // Record to update not found
+          throw new NotFoundException(`User with ID ${id} not found`);
+        }
+        if (error.code === 'P2002') {
+          throw new ConflictException('Unique constraint failed');
+        }
+      }
+      throw new InternalServerErrorException('Could not update user');
+    }
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} user`;
+  // DELETE A USER
+  async remove(id: number) {
+    try {
+      const user = await this.prisma.user.delete({
+        where: { id },
+        select: this.userSelect,
+      });
+      return user;
+    } catch (error: any) {
+      if (
+        error instanceof PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
+        throw new NotFoundException(`User with ID ${id} not found`);
+      }
+      throw new InternalServerErrorException('Could not delete user');
+    }
+  }
+
+  // GET USER STATISTICS
+  async getUserStats(id: number) {
+    const stats = await this.prisma.user.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: { posts: true },
+        },
+        posts: {
+          select: {
+            viewCount: true,
+            published: true,
+          },
+        },
+      },
+    });
+
+    if (!stats) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+
+    const totalViews = stats.posts.reduce(
+      (sum, post) => sum + post.viewCount,
+      0,
+    );
+    const publishedPosts = stats.posts.filter((post) => post.published).length;
+
+    return {
+      userId: id,
+      totalPosts: stats._count.posts,
+      publishedPosts,
+      totalViews,
+    };
   }
 }
