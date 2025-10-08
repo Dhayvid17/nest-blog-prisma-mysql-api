@@ -31,10 +31,24 @@ export class UsersService {
         ...createUserDto,
         password: hashed,
       };
-      const user = await this.prisma.user.create({
-        data,
-        select: this.userSelect,
+
+      // Using transaction to ensure atomicity
+      const user = await this.prisma.$transaction(async (prisma) => {
+        // Check if email exists first
+        const existingUser = await prisma.user.findUnique({
+          where: { email: createUserDto.email },
+        });
+
+        if (existingUser) {
+          throw new ConflictException('Email already in use');
+        }
+
+        return await prisma.user.create({
+          data,
+          select: this.userSelect,
+        });
       });
+
       return user;
     } catch (error: any) {
       if (
@@ -74,7 +88,7 @@ export class UsersService {
       orderBy: { createdAt: 'desc' },
     });
 
-    return users; // return empty array if none
+    return users;
   }
 
   // GET A SINGLE USER
@@ -106,6 +120,29 @@ export class UsersService {
   // UPDATE A USER
   async update(id: number, updateUserDto: UpdateUserDto) {
     try {
+      // First get the existing user
+      const existingUser = await this.prisma.user.findUnique({
+        where: { id },
+        select: {
+          ...this.userSelect,
+          password: true,
+        },
+      });
+
+      if (!existingUser) {
+        throw new NotFoundException(`User with ID ${id} not found`);
+      }
+
+      // Check if there are any actual changes
+      const hasChanges = Object.keys(updateUserDto).some((key) => {
+        if (key === 'password') return updateUserDto.password !== undefined;
+        return updateUserDto[key] !== existingUser[key];
+      });
+
+      if (!hasChanges) {
+        throw new ConflictException('No changes detected in the update data');
+      }
+
       const data: any = { ...updateUserDto };
       if (updateUserDto.password) {
         data.password = await argon2.hash(updateUserDto.password);

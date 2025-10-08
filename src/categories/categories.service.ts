@@ -15,16 +15,25 @@ export class CategoriesService {
   // CREATE CATEGORY
   async create(createCategoryDto: CreateCategoryDto) {
     try {
-      return await this.prisma.category.create({
-        data: createCategoryDto,
-        select: { id: true, name: true, description: true },
+      // Using transaction to ensure atomicity
+      return await this.prisma.$transaction(async (prisma) => {
+        // Check if category exists first
+        const existingCategory = await prisma.category.findUnique({
+          where: { name: createCategoryDto.name },
+        });
+
+        if (existingCategory) {
+          throw new ConflictException('Category with that name already exists');
+        }
+
+        return await prisma.category.create({
+          data: createCategoryDto,
+          select: { id: true, name: true, description: true },
+        });
       });
     } catch (error: any) {
-      if (
-        error instanceof PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
-        throw new ConflictException('Category with that name already exists');
+      if (error instanceof ConflictException) {
+        throw error;
       }
       throw new InternalServerErrorException('Could not create category');
     }
@@ -71,6 +80,38 @@ export class CategoriesService {
   // UPDATE A CATEGORY
   async update(id: number, updateCategoryDto: UpdateCategoryDto) {
     try {
+      // First get the existing category
+      const existingCategory = await this.prisma.category.findUnique({
+        where: { id },
+        select: { id: true, name: true, description: true },
+      });
+
+      if (!existingCategory) {
+        throw new NotFoundException(`Category with ID ${id} not found`);
+      }
+
+      // Check if there are any actual changes
+      const hasChanges = Object.keys(updateCategoryDto).some(
+        (key) => updateCategoryDto[key] !== existingCategory[key],
+      );
+
+      if (!hasChanges) {
+        throw new ConflictException('No changes detected in the update data');
+      }
+
+      // If changing name, check if new name is already taken
+      if (
+        updateCategoryDto.name &&
+        updateCategoryDto.name !== existingCategory.name
+      ) {
+        const nameExists = await this.prisma.category.findUnique({
+          where: { name: updateCategoryDto.name },
+        });
+        if (nameExists) {
+          throw new ConflictException('Category name already in use');
+        }
+      }
+
       return await this.prisma.category.update({
         where: { id },
         data: updateCategoryDto,
@@ -78,16 +119,10 @@ export class CategoriesService {
       });
     } catch (error: any) {
       if (
-        error instanceof PrismaClientKnownRequestError &&
-        error.code === 'P2025'
+        error instanceof ConflictException ||
+        error instanceof NotFoundException
       ) {
-        throw new NotFoundException(`Category with ID ${id} not found`);
-      }
-      if (
-        error instanceof PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
-        throw new ConflictException('Category name already in use');
+        throw error;
       }
       throw new InternalServerErrorException('Could not update category');
     }

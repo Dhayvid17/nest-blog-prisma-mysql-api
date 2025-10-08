@@ -10,8 +10,11 @@ import {
 import { Transform } from 'class-transformer';
 
 export class CreateUserDto {
-  @IsEmail()
+  @IsEmail({}, { message: 'Please provide a valid email address' })
   @IsNotEmpty()
+  @Matches(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, {
+    message: 'Email format is invalid',
+  })
   @Transform(({ value }) =>
     typeof value === 'string' ? value.trim().toLowerCase() : value,
   )
