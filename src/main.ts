@@ -37,11 +37,13 @@ async function bootstrap(retryCount = 0) {
     // Enable shutdown hooks (important for graceful shutdown)
     app.enableShutdownHooks();
 
-    const port = process.env.PORT ?? 3000;
-    await app.listen(port);
+    const PORT = process.env.PORT ?? 3000;
+    await app.listen(PORT);
 
-    logger.log(`🚀 Server is running on http://localhost:${port}/api`);
-    logger.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+    logger.log(`🚀 Server is running on http://localhost:${PORT}/api`);
+    logger.log(
+      `🌍 Environment: ${process.env.NODE_ENV || 'development'} on Port: ${PORT}`,
+    );
     logger.log(`📊 Database: Connected`);
   } catch (error) {
     logger.error('❌ Failed to start the application');

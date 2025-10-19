@@ -37,16 +37,16 @@ export class UsersController {
     return this.usersService.findAll(skip, take);
   }
 
-  // GET A SINGLE USER
-  @Get(':id')
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.usersService.findOne(id);
-  }
-
   // GET USER STATISTICS
   @Get(':id/stats')
   getUserStats(@Param('id', ParseIntPipe) id: number) {
     return this.usersService.getUserStats(id);
+  }
+
+  // GET A SINGLE USER
+  @Get(':id')
+  findOne(@Param('id', ParseIntPipe) id: number) {
+    return this.usersService.findOne(id);
   }
 
   // UPDATE A USER

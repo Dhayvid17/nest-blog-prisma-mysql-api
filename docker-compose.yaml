@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  # Local MySQL Database (for development only)
+  mysql:
+    image: mysql:8.0
+    container_name: nest-blog-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: Password@123
+      MYSQL_DATABASE: nest-blog-mysql
+      # MYSQL_USER: root (optional, using root for simplicity)
+      # MYSQL_PASSWORD: Password@123 (optional, using root password for simplicity)
+    ports:
+      - '3307:3306' # Exposes MySQL port External 3307, Internal 3306
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - nest-network
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'mysqladmin',
+          'ping',
+          '-h',
+          'localhost',
+          '-u',
+          'root',
+          '-pPassword@123',
+        ]
+      timeout: 5s
+      retries: 10
+      interval: 10s
+    profiles:
+      - dev # Only runs in development mode
+
+  # NestJS Backend Application
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: ${BUILD_TARGET:-development} # Uses development by default, production when specified
+    container_name: nest-blog-backend
+    restart: unless-stopped
+    ports:
+      - '${APP_PORT:-8080}:3000' # Exposes App port External :8080, Internal :3000
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3000 # App listens on 3000 internally
+    volumes:
+      - ./:/usr/src/app
+      - /usr/src/app/node_modules
+    networks:
+      - nest-network
+    depends_on:
+      mysql:
+        condition: service_healthy
+        required: false
+    command: ${APP_COMMAND:-npm run start:dev}
+
+networks:
+  nest-network:
+    driver: bridge
+
+volumes:
+  mysql_data:

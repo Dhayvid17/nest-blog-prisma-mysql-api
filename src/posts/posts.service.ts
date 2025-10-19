@@ -81,6 +81,19 @@ export class PostsService {
     });
   }
 
+  // SEARCH POSTS BY TITLE OR CONTENT
+  async searchPosts(query: string) {
+    return this.prisma.post.findMany({
+      where: {
+        OR: [{ title: { contains: query } }, { content: { contains: query } }],
+      },
+      include: {
+        author: { select: { id: true, name: true } },
+        categories: { select: { id: true, name: true } },
+      },
+    });
+  }
+
   // GET A SINGLE POST (increments viewCount atomically and returns the updated post)
   async findOne(id: number) {
     try {
@@ -200,18 +213,5 @@ export class PostsService {
       }
       throw error;
     }
-  }
-
-  // SEARCH POSTS BY TITLE OR CONTENT
-  async searchPosts(query: string) {
-    return this.prisma.post.findMany({
-      where: {
-        OR: [{ title: { contains: query } }, { content: { contains: query } }],
-      },
-      include: {
-        author: { select: { id: true, name: true } },
-        categories: { select: { id: true, name: true } },
-      },
-    });
   }
 }

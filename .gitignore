@@ -16,6 +16,7 @@ lerna-debug.log*
 .DS_Store
 
 # Tests
+test
 /coverage
 /.nyc_output
 
@@ -37,14 +38,21 @@ lerna-debug.log*
 
 # dotenv environment variable files
 .env
-.env.development.local
-.env.test.local
-.env.production.local
 .env.local
+.env.dev
+.env.test.local
+.env.prod
+.env.*local
 
 # temp directory
 .temp
 .tmp
+
+# Readme files
+README.md
+
+# Miscellaneous
+.prettierrc
 
 # Runtime data
 pids
