@@ -27,15 +27,17 @@ export class CreateUserDto {
   name: string;
 
   @IsString()
-  @MinLength(6)
+  @MinLength(6, { message: 'Password must be at least 6 characters long' })
   @MaxLength(128)
   @Matches(/(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*\W)/, {
-    message: 'password too weak',
+    message:
+      'Password must contain uppercase, lowercase, number, and special character',
   })
   password: string;
 
   @IsString()
   @IsOptional()
   @MaxLength(500)
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   bio?: string;
 }

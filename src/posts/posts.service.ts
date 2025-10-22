@@ -154,7 +154,10 @@ export class PostsService {
       }
 
       // If categories are being updated, verify they exist
-      if (categoryIds && categoryIds.length > 0) {
+      if (categoryIds) {
+        if (categoryIds.length === 0) {
+          throw new BadRequestException('At least one category is required');
+        }
         const categories = await this.prisma.category.findMany({
           where: {
             id: {

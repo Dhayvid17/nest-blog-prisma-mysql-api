@@ -129,13 +129,40 @@ export class CategoriesService {
   }
 
   // DELETE A CATEGORY
-  async remove(id: number) {
+  async removeAndDisconnect(id: number) {
     try {
-      return await this.prisma.category.delete({
-        where: { id },
-        select: { id: true, name: true },
+      return await this.prisma.$transaction(async (prisma) => {
+        const deleteCategory = await prisma.category.findUnique({
+          where: { id },
+          include: { posts: { select: { id: true } } },
+        });
+
+        if (!deleteCategory)
+          throw new NotFoundException(`Category with ID ${id} not found`);
+
+        // Disconnect Category from all posts first
+        if (deleteCategory.posts.length > 0) {
+          const postIds = deleteCategory.posts.map((post) => post.id);
+          // Update each post individually to disconnect the category
+          for (const postId of postIds) {
+            await prisma.post.update({
+              where: { id: postId },
+              data: {
+                categories: {
+                  disconnect: { id },
+                },
+              },
+            });
+          }
+        }
+        // Then delete the Category
+        return await prisma.category.delete({
+          where: { id },
+          select: { id: true, name: true },
+        });
       });
     } catch (error: any) {
+      if (error instanceof NotFoundException) throw error;
       if (
         error instanceof PrismaClientKnownRequestError &&
         error.code === 'P2025'
