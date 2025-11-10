@@ -32,12 +32,6 @@ export class UpdatePostDto extends PartialType(CreatePostDto) {
   @IsOptional()
   published?: boolean;
 
-  @Type(() => Number)
-  @IsInt()
-  @IsOptional()
-  @IsPositive()
-  authorId?: number;
-
   @ArrayUnique()
   @IsArray()
   @ArrayMinSize(1, { message: 'At least one category is required' })

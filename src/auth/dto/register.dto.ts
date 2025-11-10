@@ -1,43 +1,43 @@
-import { PartialType } from '@nestjs/mapped-types';
-import { CreateUserDto } from './create-user.dto';
+import { UserRole } from '@prisma/client';
+import { Transform } from 'class-transformer';
 import {
   IsEmail,
-  IsString,
-  MinLength,
-  IsOptional,
-  MaxLength,
-  Matches,
   IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Matches,
+  MaxLength,
+  MinLength,
 } from 'class-validator';
-import { Transform } from 'class-transformer';
-import { UserRole } from '@prisma/client';
 
-export class UpdateUserDto extends PartialType(CreateUserDto) {
+export class RegisterDto {
   @IsEmail({}, { message: 'Please provide a valid email address' })
-  @IsOptional()
+  @IsNotEmpty({ message: 'Email is required' })
   @Matches(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, {
     message: 'Email format is invalid',
   })
   @Transform(({ value }) =>
     typeof value === 'string' ? value.trim().toLowerCase() : value,
   )
-  email?: string;
+  email: string;
 
   @IsString()
-  @IsOptional()
-  @MaxLength(50)
+  @IsNotEmpty({ message: 'Name is required' })
+  @MinLength(2, { message: 'Name must be at least 2 characters long' })
+  @MaxLength(50, { message: 'Name must not exceed 50 characters' })
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
-  name?: string;
+  name: string;
 
   @IsString()
-  @IsOptional()
+  @IsNotEmpty({ message: 'Password is required' })
   @MinLength(6, { message: 'Password must be at least 6 characters long' })
   @MaxLength(128)
   @Matches(/(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*\W)/, {
     message:
       'Password must contain uppercase, lowercase, number, and special character',
   })
-  password?: string;
+  password: string;
 
   @IsString()
   @IsOptional()

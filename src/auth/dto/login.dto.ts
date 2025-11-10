@@ -1,19 +1,17 @@
+import { Transform } from 'class-transformer';
 import {
   IsEmail,
   IsNotEmpty,
-  IsString,
-  MinLength,
   IsOptional,
-  MaxLength,
+  IsString,
   Matches,
-  IsEnum,
+  MaxLength,
+  MinLength,
 } from 'class-validator';
-import { Transform } from 'class-transformer';
-import { UserRole } from '@prisma/client';
 
-export class CreateUserDto {
+export class LoginDto {
   @IsEmail({}, { message: 'Please provide a valid email address' })
-  @IsNotEmpty()
+  @IsNotEmpty({ message: 'Email is required' })
   @Matches(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, {
     message: 'Email format is invalid',
   })
@@ -23,12 +21,7 @@ export class CreateUserDto {
   email: string;
 
   @IsString()
-  @IsNotEmpty()
-  @MaxLength(50)
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
-  name: string;
-
-  @IsString()
+  @IsNotEmpty({ message: 'Password is required' })
   @MinLength(6, { message: 'Password must be at least 6 characters long' })
   @MaxLength(128)
   @Matches(/(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*\W)/, {
@@ -37,13 +30,7 @@ export class CreateUserDto {
   })
   password: string;
 
+  @IsOptional()
   @IsString()
-  @IsOptional()
-  @MaxLength(500)
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
-  bio?: string;
-
-  @IsOptional()
-  @IsEnum(UserRole, { message: 'Role must be either admin or user' })
-  role?: UserRole;
+  deviceInfo?: string;
 }

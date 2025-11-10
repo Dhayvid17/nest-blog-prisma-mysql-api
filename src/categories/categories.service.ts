@@ -85,19 +85,15 @@ export class CategoriesService {
         where: { id },
         select: { id: true, name: true, description: true },
       });
-
-      if (!existingCategory) {
+      if (!existingCategory)
         throw new NotFoundException(`Category with ID ${id} not found`);
-      }
 
       // Check if there are any actual changes
       const hasChanges = Object.keys(updateCategoryDto).some(
         (key) => updateCategoryDto[key] !== existingCategory[key],
       );
-
-      if (!hasChanges) {
+      if (!hasChanges)
         throw new ConflictException('No changes detected in the update data');
-      }
 
       // If changing name, check if new name is already taken
       if (
@@ -107,9 +103,8 @@ export class CategoriesService {
         const nameExists = await this.prisma.category.findUnique({
           where: { name: updateCategoryDto.name },
         });
-        if (nameExists) {
+        if (nameExists)
           throw new ConflictException('Category name already in use');
-        }
       }
 
       return await this.prisma.category.update({
@@ -134,11 +129,25 @@ export class CategoriesService {
       return await this.prisma.$transaction(async (prisma) => {
         const deleteCategory = await prisma.category.findUnique({
           where: { id },
-          include: { posts: { select: { id: true } } },
+          include: {
+            posts: { include: { categories: { select: { id: true } } } },
+          },
         });
 
         if (!deleteCategory)
           throw new NotFoundException(`Category with ID ${id} not found`);
+
+        // Check if any post would become 0 without a category
+        const orphanedPosts = deleteCategory.posts.filter(
+          (post) =>
+            post.categories.length === 1 && post.categories[0].id === id,
+        );
+
+        if (orphanedPosts.length > 0) {
+          throw new ConflictException(
+            `Cannot delete category. ${orphanedPosts.length} post(s) would have no categories. Please reassign them first.`,
+          );
+        }
 
         // Disconnect Category from all posts first
         if (deleteCategory.posts.length > 0) {

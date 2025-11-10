@@ -3,12 +3,14 @@ import {
   NotFoundException,
   ConflictException,
   InternalServerErrorException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import * as argon2 from 'argon2';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
+import { UserRole } from '@prisma/client';
 
 @Injectable()
 export class UsersService {
@@ -26,12 +28,6 @@ export class UsersService {
   // CREATE NEW USER
   async create(createUserDto: CreateUserDto) {
     try {
-      const hashed = await argon2.hash(createUserDto.password);
-      const data = {
-        ...createUserDto,
-        password: hashed,
-      };
-
       // Using transaction to ensure atomicity
       const user = await this.prisma.$transaction(async (prisma) => {
         // Check if email exists first
@@ -39,9 +35,15 @@ export class UsersService {
           where: { email: createUserDto.email },
         });
 
-        if (existingUser) {
-          throw new ConflictException('Email already in use');
-        }
+        if (existingUser)
+          throw new ConflictException('User with this email already exists');
+
+        // Hash password
+        const hashedPassword = await argon2.hash(createUserDto.password);
+        const data = {
+          ...createUserDto,
+          password: hashedPassword,
+        };
 
         return await prisma.user.create({
           data,
@@ -92,7 +94,15 @@ export class UsersService {
   }
 
   // GET A SINGLE USER
-  async findOne(id: number) {
+  async findOne(id: number, currentUserId: number, userRole: UserRole) {
+    // Check if its Admin or Owner
+    const isAdmin = userRole === UserRole.ADMIN;
+    const isOwner = currentUserId === id;
+
+    if (!isAdmin && !isOwner) {
+      throw new ForbiddenException('You can only view your own profile');
+    }
+
     const user = await this.prisma.user.findUnique({
       where: { id },
       select: {
@@ -118,8 +128,21 @@ export class UsersService {
   }
 
   // UPDATE A USER
-  async update(id: number, updateUserDto: UpdateUserDto) {
+  async update(
+    id: number,
+    updateUserDto: UpdateUserDto,
+    currentUserId: number,
+    userRole: UserRole,
+  ) {
     try {
+      // Check if its Admin or Owner
+      const isAdmin = userRole === UserRole.ADMIN;
+      const isOwner = currentUserId === id;
+
+      if (!isAdmin && !isOwner) {
+        throw new ForbiddenException('You can only view your own profile');
+      }
+
       // First get the existing user
       const existingUser = await this.prisma.user.findUnique({
         where: { id },
@@ -129,9 +152,8 @@ export class UsersService {
         },
       });
 
-      if (!existingUser) {
+      if (!existingUser)
         throw new NotFoundException(`User with ID ${id} not found`);
-      }
 
       // Check if there are any actual changes
       const hasChanges = Object.keys(updateUserDto).some((key) => {
@@ -162,7 +184,7 @@ export class UsersService {
           throw new NotFoundException(`User with ID ${id} not found`);
         }
         if (error.code === 'P2002') {
-          throw new ConflictException('Unique constraint failed');
+          throw new ConflictException('Email already in use');
         }
       }
       throw new InternalServerErrorException('Could not update user');
@@ -170,8 +192,12 @@ export class UsersService {
   }
 
   // DELETE A USER
-  async remove(id: number) {
+  async remove(id: number, currentUserId: number) {
     try {
+      // Prevent self-deletion for admins
+      if (currentUserId && id === currentUserId) {
+        throw new ConflictException('You cannot delete your own account');
+      }
       const user = await this.prisma.user.delete({
         where: { id },
         select: this.userSelect,
@@ -189,7 +215,15 @@ export class UsersService {
   }
 
   // GET USER STATISTICS
-  async getUserStats(id: number) {
+  async getUserStats(id: number, currentUserId: number, userRole?: UserRole) {
+    // Check if its Admin or Owner
+    const isAdmin = userRole === UserRole.ADMIN;
+    const isOwner = currentUserId === id;
+
+    if (!isAdmin && !isOwner) {
+      throw new ForbiddenException('You can only view your own stats');
+    }
+
     const stats = await this.prisma.user.findUnique({
       where: { id },
       include: {

@@ -1,4 +1,4 @@
-generator client {
+generator client { 
   provider = "prisma-client-js"
 }
 
@@ -7,15 +7,36 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum UserRole {
+  ADMIN @map("admin")
+  USER @map("user")
+}
+
+model RefreshTokens {
+  id         Int @id @default(autoincrement())
+  token      String   @db.Text
+  createdAt  DateTime @default(now())
+  expiresAt  DateTime
+  deviceInfo String? @default("Unknown Device")
+  user       User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     Int
+         
+@@index([token(length: 255)])
+@@index([expiresAt]) // Added this for cleanup queries
+}
+
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  name      String
-  password  String
-  bio       String?  @db.Text
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  posts     Post[]
+  id            Int      @id @default(autoincrement())
+  email         String   @unique
+  name          String
+  password      String
+  bio           String?  @db.Text
+  role          UserRole @default(USER)
+  lastLogin     DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  refreshTokens RefreshTokens[]
+  posts         Post[]
 
   @@index([email])
 }
